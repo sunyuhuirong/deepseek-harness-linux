@@ -60,6 +60,13 @@ export function resolveDesktopAutoUpdateTarget(
 ): DesktopAutoUpdateTarget
 
 /**
+ * Report whether a packaging target publishes updates.
+ * @param target - Candidate Desktop target name.
+ * @returns True when the target has an update channel.
+ */
+export function isDesktopAutoUpdateTarget(target: string): target is DesktopAutoUpdateTarget
+
+/**
  * Return the local completion record filename for one packaged target.
  * @param target - Supported release target.
  * @returns Filename stored beside electron-builder artifacts.

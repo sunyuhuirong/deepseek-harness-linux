@@ -29,7 +29,7 @@
 }
 
 /* First child: later content and dialogs subtract their interactive regions. */
-:global(html[data-platform='darwin']) .dragBand {
+:global(html:is([data-platform='darwin'], [data-inline-titlebar])) .dragBand {
   position: absolute;
   inset: 8px;
   pointer-events: none;

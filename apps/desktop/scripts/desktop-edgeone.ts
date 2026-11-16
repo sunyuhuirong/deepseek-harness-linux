@@ -1,7 +1,7 @@
 /** Submit one production fixed-installer cache purge to EdgeOne. */
 import type { teo } from 'tencentcloud-sdk-nodejs-teo'
 import type { DesktopPackageTargetName } from './package-target.ts'
-import { desktopLatestInstallerFilename, requiredEnvironmentValue, resolveDesktopAutoUpdateEnvironment, resolveDesktopUploadConfig } from './desktop-auto-update-environment.mjs'
+import { desktopLatestInstallerFilename, isDesktopAutoUpdateTarget, requiredEnvironmentValue, resolveDesktopAutoUpdateEnvironment, resolveDesktopUploadConfig } from './desktop-auto-update-environment.mjs'
 import { desktopTargetPlatform } from './desktop-build-paths.mjs'
 
 /** Validated production destination and credentials; never serialize this value. */
@@ -26,6 +26,7 @@ export function resolveDesktopPurgeConfig(
   env: NodeJS.ProcessEnv, target: DesktopPackageTargetName, publicUrl?: string,
 ): DesktopPurgeConfig {
   if (resolveDesktopAutoUpdateEnvironment(env) !== 'production') throw new DesktopPurgeError('desktop purge: production is required')
+  if (!isDesktopAutoUpdateTarget(target)) throw new DesktopPurgeError(`desktop purge: unsupported target ${String(target)}`)
   const { platform, arch } = desktopTargetPlatform(target)
   const update = resolveDesktopUploadConfig(env, platform, arch)
   const zoneId = requiredEnvironmentValue(env, 'DOWNLOAD_PROD_EO_ZONE_ID')

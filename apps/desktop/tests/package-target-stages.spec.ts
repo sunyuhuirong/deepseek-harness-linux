@@ -230,6 +230,17 @@ it.each(['mac-arm64', 'mac-x64', 'win-x64'] as const)('selects branding from the
   }
 })
 
+it('selects the official client brand for the unsigned Linux artifact', async () => {
+  // Linux has only unsigned local artifacts, so its client bundle carries the
+  // official brand and the packing stage validates that profile.
+  const { run, stages } = supervisor()
+  await packageTarget(parseDesktopPackageInvocation(['linux-x64', '--unsigned'], 'linux', 'x64'), environment, run)
+  expect(stages[0]).toBe('run build --profile official')
+  expect(stages.some(stage => stage.startsWith(
+    'exec tsx apps/desktop/scripts/pack-local-packages.ts --client-profile official '))).toBe(true)
+  expect(stages).not.toContain('run build --profile local')
+})
+
 it.each([
   ['mac-arm64', 'run build --profile local'],
   ['win-x64', 'run build --profile local'],

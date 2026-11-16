@@ -7,6 +7,7 @@ import { DesktopUpdateSettings } from './update-settings.ts'
 import { isDesktopUpdateChannel } from './settings-file.ts'
 import type { ProductEventMap, ProductEvent } from '@deepseek-ai/dsh-client-product-analytics/types'
 import { WINDOWS_TITLEBAR_HEIGHT } from './windows-layout.ts'
+import { LINUX_TITLEBAR_OVERLAY_HEIGHT } from './linux-layout.ts'
 import { access, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -285,6 +286,15 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
       visualEffectState: 'active' as const,
       backgroundColor: '#00000000',
     } : {}),
+    // Linux keeps the desktop's own window buttons over the page, where macOS
+    // puts its traffic lights: no caption strip, and a transparent overlay so
+    // the sidebar's top strip shows through them.
+    ...(process.platform === 'linux' && primary ? {
+      backgroundColor: chromeFallbackFill(),
+      titleBarStyle: 'hidden' as const,
+      titleBarOverlay: { height: LINUX_TITLEBAR_OVERLAY_HEIGHT, color: '#00000000',
+        symbolColor: nativeTheme.shouldUseDarkColors ? '#f9fafb' : '#0f1115' },
+    } : {}),
     webPreferences: {
       preload,
       nodeIntegration: false,
@@ -299,7 +309,7 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
     if (['http:', 'https:'].includes(new URL(url).protocol)) void shell.openExternal(url)
     return { action: 'deny' }
   })
-  if (process.platform === 'darwin' || process.platform === 'win32') {
+  if (process.platform === 'darwin' || process.platform === 'win32' || process.platform === 'linux') {
     // Fullscreen hides native window controls; overlays drop their caption clearance.
     const sendFullscreen = (): void => {
       if (!window.isDestroyed()) window.webContents.send(DESKTOP_IPC.windowFullscreen, window.isFullScreen())
@@ -310,7 +320,7 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
     // current state so a fullscreen reload does not fall back to windowed CSS.
     window.webContents.on('did-finish-load', sendFullscreen)
   }
-  if (process.platform === 'win32' && primary) {
+  if ((process.platform === 'win32' || process.platform === 'linux') && primary) {
     const updateBackground = (): void => {
       if (!window.isDestroyed()) window.setBackgroundColor(chromeFallbackFill())
     }
@@ -528,8 +538,10 @@ async function main(): Promise<void> {
     navigation = next
     return next.promise
   }
+  // The Platform service identifies only macOS and Windows desktops, so Linux reports the web client.
   const platformView = new DesktopPlatformView(join(app.getAppPath(), 'lib', 'preload-platform-account.cjs'),
-    () => locale.id === 'zh-CN' ? 'zh_CN' : 'en_US', process.platform === 'win32' ? 'win32' : 'darwin',
+    () => locale.id === 'zh-CN' ? 'zh_CN' : 'en_US',
+    process.platform === 'win32' ? 'win32' : process.platform === 'darwin' ? 'darwin' : null,
     owner => isMandatory() || updateOverlays.input(owner).blocked)
   const backend = new DesktopBackendController((onFailure) => {
     const hostInspectPort = developmentHostInspectPort(development)
@@ -1146,7 +1158,7 @@ async function main(): Promise<void> {
 
   const automaticCheck = (): void => {
     if (!quitting) void mandatoryPolicy?.check('foreground-or-resume').catch((error: unknown) => { console.error(error) })
-    if (!quitting) void updateSchedule.check().catch((error: unknown) => { console.error(error) })
+    if (updatesSupported && !quitting) void updateSchedule.check().catch((error: unknown) => { console.error(error) })
   }
   powerMonitor.on('resume', automaticCheck)
   app.on('will-quit', () => {
@@ -1169,6 +1181,8 @@ async function main(): Promise<void> {
   // its standard menus and application hide commands declared explicitly.
   // Keep app.name stable: Electron derives its default userData directory from it.
   const darwin = process.platform === 'darwin'
+  // Local Linux packages carry no update feed, so polling and the manual check action stay off.
+  const updatesSupported = process.platform !== 'linux'
   // A copy of Electron 44's macOS Edit menu that binds Paste and Match Style to Shift+Command+V
   // (#7782) and keeps Electron's Option+Shift+Command+V as a hidden alias.
   const macEditMenu = (messages: DesktopMessages): MenuItemConstructorOptions => ({ role: 'editMenu', submenu: [
@@ -1207,10 +1221,11 @@ async function main(): Promise<void> {
       ? { label: currentDesktopLocale().messages.aboutMenu,
         click: () => { void showAbout().catch((error: unknown) => { console.error(error) }) } }
       : { label: currentDesktopLocale().messages.aboutMenu, role: 'about' },
-    { type: 'separator' },
-    { label: currentDesktopLocale().messages.checkUpdatesMenu, click: () => { void openUpdatePrompt(true) } },
-    ...process.platform === 'darwin' || process.platform === 'win32'
-      ? [{ label: currentDesktopLocale().messages.cliCommandMenu, click: () => { void commandManager.show() } }] : [],
+    ...(updatesSupported ? [
+      { type: 'separator' as const },
+      { label: currentDesktopLocale().messages.checkUpdatesMenu, click: () => { void openUpdatePrompt(true) } },
+    ] : []),
+    { label: currentDesktopLocale().messages.cliCommandMenu, click: () => { void commandManager.show() } },
     { type: 'separator' },
     ...development ? [
       { label: currentDesktopLocale().messages.reloadPageMenu, role: 'reload' as const },
@@ -1240,8 +1255,12 @@ async function main(): Promise<void> {
     tray?.relabel()
   }
   refreshApplicationMenu()
-  const trayIconPath = development ? join(app.getAppPath(), 'resources', 'tray-windows.ico') : join(process.resourcesPath, 'tray.ico')
-  if (process.platform === 'win32') {
+  // Linux appindicator takes a PNG; Windows packs every display scale into the ICO.
+  const trayIconName = process.platform === 'linux' ? 'tray-linux.png' : 'tray-windows.ico'
+  const trayIconPath = development
+    ? join(app.getAppPath(), 'resources', trayIconName)
+    : join(process.resourcesPath, process.platform === 'linux' ? 'tray.png' : 'tray.ico')
+  if (process.platform === 'win32' || process.platform === 'linux') {
     // The tray is the way back to a hidden window; without it, relaunching the application still focuses it.
     try {
       tray = new DesktopTray({ iconPath: trayIconPath, locale: currentDesktopLocale,
@@ -1298,6 +1317,9 @@ async function main(): Promise<void> {
         Menu.buildFromTemplate(items).popup({ window, x: Math.round(x * zoom), y: Math.round(y * zoom), callback: resolve })
       })
     })
+  }
+  // Both overlay platforms follow the application palette; only Windows also owns the caption menus.
+  if (process.platform === 'win32' || process.platform === 'linux') {
     ipcMain.on(DESKTOP_IPC.windowsAppearance, (event, _language: unknown, color: unknown, symbolColor: unknown) => {
       if (mainWindow === undefined || event.sender !== mainWindow.webContents
         || event.senderFrame !== mainWindow.webContents.mainFrame) return
@@ -1306,7 +1328,12 @@ async function main(): Promise<void> {
       // Empty colors precede client stylesheet installation; only CSS color values cross IPC.
       const validColor = (value: unknown): value is string => typeof value === 'string'
         && /^(?:#[\da-f]{3,8}|rgba?\([\d.,%\s]+\))$/iu.test(value)
-      if (validColor(color) && validColor(symbolColor)) mainWindow.setTitleBarOverlay({ color, symbolColor })
+      if (validColor(color) && validColor(symbolColor)) {
+        // Linux buttons float over the page, so only their glyphs follow the palette.
+        mainWindow.setTitleBarOverlay(process.platform === 'linux'
+          ? { color: '#00000000', symbolColor }
+          : { color, symbolColor })
+      }
     })
   }
 
@@ -1324,6 +1351,13 @@ async function main(): Promise<void> {
     mainWindow = window
     browserGuests.bind(window, (guest, name) => shortcuts.attachGuest(window, guest, name))
     shortcuts.attach(window)
+    // A hidden application menu has no visible bar; right-clicking the caption strip still reaches it.
+    if (process.platform === 'linux') {
+      window.on('system-context-menu', (event, point) => {
+        event.preventDefault()
+        Menu.buildFromTemplate(applicationItems()).popup({ window, x: Math.round(point.x), y: Math.round(point.y) })
+      })
+    }
     window.on('focus', automaticCheck)
     // Closing hides: the page and the Host keep running, and the next show resumes the same document.
     window.on('close', (event) => {

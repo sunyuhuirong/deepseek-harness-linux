@@ -36,6 +36,12 @@ export function welcomeWindowOptions(platform: NodeJS.Platform, locale: DesktopL
       titleBarOverlay: { color: '#00000000', symbolColor: '#0F1115', height: 42 },
       backgroundMaterial: 'acrylic',
     } as const : {}),
+    // Linux draws the desktop's window buttons over the page, as the frameless
+    // Windows welcome page does, with a transparent backing over the title strip.
+    ...(platform === 'linux' ? {
+      titleBarStyle: 'hidden',
+      titleBarOverlay: { height: 42, color: '#00000000', symbolColor: '#0F1115' },
+    } as const : {}),
     webPreferences: {
       preload: fileURLToPath(new URL('./preload-welcome.cjs', import.meta.url)),
       additionalArguments: [`--dsh-welcome-locale=${locale.id}`],

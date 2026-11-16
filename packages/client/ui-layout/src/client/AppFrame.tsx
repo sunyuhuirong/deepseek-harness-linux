@@ -168,8 +168,12 @@ export function AppFrame({
   }, [actions])
 
   const narrow = viewport < SIDEBAR_AUTO_COLLAPSE
-  const windowsTitlebar = document.documentElement.hasAttribute('data-windows-titlebar')
-  const drawer = viewport < SIDEBAR_DRAWER_BREAKPOINT && !windowsTitlebar
+  const root = document.documentElement
+  const windowsTitlebar = root.hasAttribute('data-windows-titlebar')
+  // macOS hidden-inset and the Linux window-controls overlay both keep the
+  // window chrome inside the page, so neither keeps a rail or a caption row.
+  const inlineChrome = root.dataset.platform === 'darwin' || root.hasAttribute('data-inline-titlebar')
+  const drawer = viewport < SIDEBAR_DRAWER_BREAKPOINT && !windowsTitlebar && !inlineChrome
   const centeredSidebar = foldedLandscape && viewport >= SIDEBAR_DRAWER_BREAKPOINT
   const sidebarCollapsed = narrow ? !layoutInfo.narrowExpanded : layoutInfo.sidebar === 0
   const drawerOpen = drawer && !sidebarCollapsed
@@ -184,8 +188,7 @@ export function AppFrame({
   const rightbarPreference = layoutInfo.rightbar ?? viewport * RIGHTBAR_DEFAULT_RATIO
   // Desktop reopen controls occupy the frame's shell.leading seat (macOS) or
   // the Windows caption row; neither platform keeps an icon rail.
-  const darwin = document.documentElement.dataset.platform === 'darwin'
-  const collapsedWidth = drawer || darwin || windowsTitlebar ? 0 : SIDEBAR_COLLAPSED
+  const collapsedWidth = drawer || inlineChrome || windowsTitlebar ? 0 : SIDEBAR_COLLAPSED
   // Opening on a narrow frame collapses the left sidebar. Eligibility must
   // include that space before the occupant's first shown report arrives.
   const normal = computeColumns(
@@ -283,7 +286,7 @@ export function AppFrame({
   // Windows native captions keep their controls in the caption row instead.
   // AppFrame.module.css reserves clearance for the seat's rendered controls.
   const leading = useMemo(() => renderSlot('shell.leading', {}), [renderSlot])
-  const leadingMounted = drawer || darwin && sidebarCollapsed
+  const leadingMounted = drawer || inlineChrome && sidebarCollapsed
 
   return (
     <div

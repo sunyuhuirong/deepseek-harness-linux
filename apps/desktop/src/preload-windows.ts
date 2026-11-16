@@ -1,14 +1,23 @@
 import { WINDOWS_TITLEBAR_HEIGHT } from './windows-layout.ts'
-/** Synchronizes Windows context menus and caption colors with the application document. */
+/** Synchronizes the native titlebar caption menus and colors with the application document. */
 import { ipcRenderer } from 'electron'
 import { DESKTOP_IPC } from './ipc.ts'
 import { installWindowsMenu } from './preload-menu.ts'
 
-/** Install the Windows-only titlebar marker and observe application language and palette changes. */
+/**
+ * Install the desktop window-chrome marker and observe application language and
+ * palette changes. Windows reserves a caption strip above the page; Linux inlines
+ * the same overlay buttons beside the sidebar, as macOS does.
+ */
 export function syncWindowsAppearance(): void {
-  if (process.platform !== 'win32') return
+  if (process.platform !== 'win32' && process.platform !== 'linux') return
+  const linux = process.platform === 'linux'
   const mark = (): void => {
     const root = document.documentElement
+    if (linux) {
+      root.dataset.inlineTitlebar = ''
+      return
+    }
     root.dataset.windowsTitlebar = ''
     root.style.setProperty('--dsh-windows-titlebar-height', `${WINDOWS_TITLEBAR_HEIGHT}px`)
   }
@@ -17,7 +26,8 @@ export function syncWindowsAppearance(): void {
   const install = (): void => {
     mark()
     const root = document.documentElement
-    const menu = installWindowsMenu()
+    // The in-page caption menubar is a Windows convention; Linux keeps the strip draggable only.
+    const menu = process.platform === 'win32' ? installWindowsMenu() : undefined
     const probe = document.createElement('span')
     probe.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;background-color:var(--dsw-specific-sidebar-fill);color:var(--dsw-alias-label-primary)'
     document.body.append(probe)
@@ -41,7 +51,7 @@ export function syncWindowsAppearance(): void {
       const current = JSON.stringify(values)
       if (current === previous) return
       previous = current
-      menu.update()
+      menu?.update()
       ipcRenderer.send(DESKTOP_IPC.windowsAppearance, ...values)
     }
     const observer = new MutationObserver(send)
@@ -51,7 +61,7 @@ export function syncWindowsAppearance(): void {
     document.head.addEventListener('load', send, true)
     window.addEventListener('pagehide', () => {
       observer.disconnect()
-      menu.dispose()
+      menu?.dispose()
       probe.remove()
       document.head.removeEventListener('load', send, true)
     }, { once: true })

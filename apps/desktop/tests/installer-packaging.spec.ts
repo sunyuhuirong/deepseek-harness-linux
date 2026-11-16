@@ -102,6 +102,30 @@ describe('installer preparation preserves application dependencies', () => {
     expect(config.artifactName).toBe('deepseek-harness-${version}-${os}-${arch}-unsigned.${ext}')
   })
 
+  it('packages Linux as a local unsigned Debian application with its own tray icon', async () => {
+    const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
+    const config = createElectronBuilderConfig({
+      DSH_DESKTOP_APP_ID: 'com.deepseek.harness',
+      DSH_DESKTOP_UNSIGNED: '1',
+      DSH_DESKTOP_TARGET_PLATFORM: 'linux',
+      DSH_DESKTOP_TARGET_ARCH: 'x64',
+    }, 'linux', 'x64')
+    expect(config.linux).toMatchObject({
+      executableName: 'deepseek-harness',
+      target: ['deb'],
+      desktop: { entry: { MimeType: 'x-scheme-handler/dsh;', StartupWMClass: 'com.deepseek.harness' } },
+    })
+    // Debian metadata needs a maintainer address, and fpm reads the homepage from packaged metadata.
+    expect(config.deb.maintainer).toContain('@')
+    expect(config.deb.recommends).toEqual(['libayatana-appindicator3-1'])
+    expect(config.extraMetadata.homepage).toBe('https://github.com/deepseek-ai/deepseek-harness')
+    // Linux has no update feed, so no policy or publish configuration reaches the package.
+    expect(config.extraMetadata).not.toHaveProperty('dshMandatoryUpdatePolicy')
+    expect(config.publish).toBeNull()
+    const trayIcon = config.extraResources.find(resource => resource.from.endsWith('tray-linux.png'))
+    expect(readFileSync(trayIcon!.from)).toEqual(readFileSync(new URL('../resources/tray-linux.png', import.meta.url)))
+  })
+
   it('packages every preload entry point the shell loads', async () => {
     const { readdirSync, readFileSync } = await import('node:fs')
     const sourceDirectory = new URL('../src/', import.meta.url)

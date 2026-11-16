@@ -1,5 +1,5 @@
 /** Locate LibreOffice Kit and its engine packages from the consumer's Kit installation without module hooks. */
-import { lstatSync } from 'node:fs'
+import { lstatSync, type Stats } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 
@@ -61,7 +61,7 @@ export function createEnginePackageResolver(kitEntry: string | URL): EnginePacka
     } catch (error) {
       if (error instanceof Error && 'code' in error && error.code === 'MODULE_NOT_FOUND') {
         const installed = (fromKit.resolve.paths(name) ?? []).some(directory =>
-          lstatSync(join(directory, name), { throwIfNoEntry: false }) !== undefined,
+          installedPackagePresent(join(directory, name)),
         )
         if (installed) throw new Error(`Installed LibreOfficeKit package is incomplete: ${name}. Reinstall the package.`, { cause: error })
       }
@@ -69,6 +69,17 @@ export function createEnginePackageResolver(kitEntry: string | URL): EnginePacka
     }
     return name === '@deepseek-ai/libreoffice-kit-wasm' ? manifest : unpackedPath(manifest)
   }
+}
+
+/**
+ * Report whether an installed package directory exists.
+ * @param path - Candidate package directory.
+ * @returns True only when the filesystem reports a status for the entry.
+ */
+function installedPackagePresent(path: string): boolean {
+  // Electron's ASAR filesystem reports an absent entry as `null`; plain Node reports `undefined`.
+  const status: Stats | null | undefined = lstatSync(path, { throwIfNoEntry: false })
+  return status !== undefined && status !== null
 }
 
 type EntryLookup = { readonly kind: 'found'; readonly entry: string } | { readonly kind: 'missing'; readonly error: unknown }

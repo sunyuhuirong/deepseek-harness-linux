@@ -24,6 +24,7 @@ Desktop 在原生应用中运行 Harness 工作区。本参考文档说明应用
 - [Windows 安装界面](#windows-installer-interface)
 - [更新](#updates)
 - [底层开发覆盖项](#low-level-development-overrides)
+- [Linux 支持](#linux-support)
 - [已知限制](#known-limitations)
 - [开发备注](#dev-note)
 
@@ -399,6 +400,14 @@ node apps/desktop/node_modules/pnpm/bin/pnpm.mjs --dir apps/desktop run test:upd
 私有 Platform 部署请求头由内嵌浏览器会话注入，仅用于配置来源的文档和 API 请求。Cookie 覆盖按名称合并。跨来源请求移除部署请求头；bootstrap 仅暴露 origin、token 和已解析的语言。
 
 账号提供者的 `embeddedPageDist` 配置为内嵌用量和充值页面 URL 添加 `dist` 查询参数。默认值为空；私有前端分支选择值应写在本地 profile patch 中。此配置不改变 API 地址或凭证传递方式。
+
+<a id="linux-support"></a>
+
+## Linux 支持
+
+本地未签名的 Linux x64 软件包以 DEB 安装；构建命令、宿主工具、依赖和产物路径见 [Desktop 打包](packaging/README.zh.md#local-linux-deb-without-release-signing)。安装会注册 `dsh` URL scheme，并把 CLI 命令创建在 `~/.local/bin/dsh` 而不是 `/usr/local/bin/dsh`，不修改 shell 启动文件。主窗口与欢迎窗口把桌面自身的窗口按钮画在页面上，因此既没有原生标题栏，也没有标题条；主窗口沿用 macOS 布局：侧边栏保留顶条承载这些按钮，内容区直达窗口顶边，按钮所在的一侧跟随桌面的窗口按钮设置。在该顶条或会话标题条上右键可打开桌面应用菜单。关闭窗口会隐藏窗口（没有 Windows 的首次关闭确认），可通过托盘重新打开；appindicator 是 Debian 推荐依赖，缺少它的会话会记录托盘不可用，重新启动应用仍是回到窗口的方式。
+
+Linux 软件包不携带更新源，因此不启动自动检查，应用菜单也不提供“检查更新”。内嵌 Platform 账号视图以 Web 客户端身份上报，因为该服务只区分 macOS 与 Windows 桌面端。Office 预览与转换使用随包的 WebAssembly LibreOffice 引擎，因为当前没有发布 Linux 原生引擎包。
 
 <a id="dev-note"></a>
 

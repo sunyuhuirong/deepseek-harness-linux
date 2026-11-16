@@ -55,10 +55,10 @@
    subtract their whole boxes, and individual controls are covered by the base.css
    interactive-element rule. A covering overlay lives beside #root
    (ui-settings-general), which puts it after this row in document order. */
-:global([data-platform='darwin']) .headerLeading,
-:global([data-platform='darwin']) .headerActions,
-:global([data-platform='darwin']) .headerUtilities,
-:global([data-platform='darwin']) .headerCorner {
+:global(:is([data-platform='darwin'], [data-inline-titlebar])) .headerLeading,
+:global(:is([data-platform='darwin'], [data-inline-titlebar])) .headerActions,
+:global(:is([data-platform='darwin'], [data-inline-titlebar])) .headerUtilities,
+:global(:is([data-platform='darwin'], [data-inline-titlebar])) .headerCorner {
   -webkit-app-region: no-drag;
 }
 

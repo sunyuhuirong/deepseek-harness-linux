@@ -175,7 +175,7 @@
    the window's top strip in both sidebar states so it never jumps, and the head
    owns the window drag over its own box — clearance included — so this page's
    top strip drags without a frame band. */
-:global([data-platform='darwin']) .pageHead {
+:global(:is([data-platform='darwin'], [data-inline-titlebar])) .pageHead {
   padding-top: calc(var(--plugin-page-top-inset) + var(--dsh-frame-top-clearance, 0px));
 }
 
@@ -1429,8 +1429,8 @@ label.registryOption {
   flex-direction: column;
 }
 
-:global([data-platform='darwin']) .detailTop,
-:global([data-platform='darwin']) .moreHead {
+:global(:is([data-platform='darwin'], [data-inline-titlebar])) .detailTop,
+:global(:is([data-platform='darwin'], [data-inline-titlebar])) .moreHead {
   padding-top: calc(var(--plugin-page-top-inset) + var(--dsh-frame-top-clearance, 0px));
 }
 
@@ -1741,12 +1741,12 @@ label.registryOption {
 }
 
 /* With the sidebar open, native window controls sit in the sidebar rather than above the page. */
-:global([data-platform='darwin']) .pageBar[data-compact]:not([data-natural]) .pageHead {
+:global(:is([data-platform='darwin'], [data-inline-titlebar])) .pageBar[data-compact]:not([data-natural]) .pageHead {
   padding-top: var(--plugin-page-top-inset);
 }
 
 /* Collapsing the sidebar moves those controls above the page; the compact bar then clears them. */
-:global([data-platform='darwin']) :global([data-sidebar-collapsed]) .pageBar[data-compact]:not([data-natural]) .pageHead {
+:global(:is([data-platform='darwin'], [data-inline-titlebar])) :global([data-sidebar-collapsed]) .pageBar[data-compact]:not([data-natural]) .pageHead {
   --plugin-page-top-inset: 8px;
 
   padding-top: calc(var(--plugin-page-top-inset) + var(--dsh-frame-top-clearance, 0px));

@@ -22,7 +22,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
   FishLogo, IconAppsAddOutlineRegular, IconNewChatOutlineMedium, IconNewChatOutlineRegular,
-  IconPanelLeftOutlineRegular, IconPinFillRegular, focusWithoutRing, isBehindModal, isDarwinDesktop, Menu, ShortcutKeys, Toast,
+  IconPanelLeftOutlineRegular, IconPinFillRegular, focusWithoutRing, hasInlineWindowChrome, isBehindModal, Menu, ShortcutKeys, Toast,
   Tooltip, useModalLayer, writeClipboard,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsRenderFactories, PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
@@ -277,7 +277,7 @@ export function SidebarRoot({
     })
   }
 
-  const darwinDesktop = isDarwinDesktop()
+  const inlineChrome = hasInlineWindowChrome()
   // Rail resting state is the whale mark; hovering swaps in the panel icon
   // (the expand affordance, figma sidebar-hover flow). Expanded it is a plain
   // panel icon.
@@ -326,7 +326,7 @@ export function SidebarRoot({
     >
       {/* macOS hiddenInset titlebar: the strip shares the row with the
           traffic lights and keeps the toggle at the sidebar's top-right. */}
-      {darwinDesktop && <div className={css.topStrip} data-window-drag>{toggle}</div>}
+      {inlineChrome && <div className={css.topStrip} data-window-drag>{toggle}</div>}
       <div className={css.logoRow} data-window-drag>
         {/* Expanded, the brand doubles as a New Session shortcut while the
             access snapshot allows `session/create` — except on
@@ -358,7 +358,7 @@ export function SidebarRoot({
               </span>
             </span>
           )
-          return darwinDesktop || !canStartSession
+          return inlineChrome || !canStartSession
             ? <span className={clsx(css.brand, css.wide)}>{identity}</span>
             : (
               <button
@@ -375,7 +375,7 @@ export function SidebarRoot({
               </button>
             )
         })()}
-        {!darwinDesktop && toggle}
+        {!inlineChrome && toggle}
       </div>
 
       {/* The label fades before the hover/focus shortcut, including on translucent backgrounds. */}

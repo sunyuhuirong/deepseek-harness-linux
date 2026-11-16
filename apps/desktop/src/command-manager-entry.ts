@@ -33,8 +33,16 @@ try {
     })
     child.stdin.end(JSON.stringify({ operation, expected, directory: join(resources, 'runtime', 'cli', 'bin') }))
     process.exitCode = await exited ?? 1
+  } else if (process.platform === 'linux') {
+    const home = process.env.HOME
+    if (home === undefined || home === '') throw new CommandInstallationError('ENOENT', 'Home directory is unavailable.')
+    const options = { destination: join(home, '.local', 'bin', 'dsh'), launcher: join(resources, 'runtime', 'cli', 'bin', 'dsh'),
+      linkHelper: join(resources, 'runtime', 'cli', 'link-entry') }
+    const state = operation === 'inspect' ? await inspectFileCommand(options)
+      : operation === 'install' ? await installFileCommand(options, fingerprint) : await removeFileCommand(options, fingerprint)
+    process.stdout.write(JSON.stringify({ ok: true, state }) + '\n')
   } else {
-    throw new CommandInstallationError('EUNSUPPORTED', 'Command installation is supported on macOS and Windows.')
+    throw new CommandInstallationError('EUNSUPPORTED', 'Command installation is supported on macOS, Windows, and Linux.')
   }
 } catch (error) {
   // osascript preserves stdout only when the command exits successfully; the response owns operation failures.

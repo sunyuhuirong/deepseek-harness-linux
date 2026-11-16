@@ -19,6 +19,7 @@ Build Desktop installers locally or through Windows or macOS Actions, choose dep
 - [macOS self-hosted packaging](#macos-actions)
 - [Unsigned Windows test installer](#unsigned-windows-test-installer)
 - [Local macOS DMG without release signing](#local-macos-dmg-without-release-signing)
+- [Local Linux DEB without release signing](#local-linux-deb-without-release-signing)
 - [macOS release signing and diagnostics](#macos-release-signing)
 - [Directory builds and preparation](#directory-and-preparation)
 - [Local Official bundles from a loopback registry](#local-official-bundles-from-a-loopback-registry)
@@ -69,7 +70,7 @@ The installer embeds `DSH_DESKTOP_UPDATE_CHANNEL` (`nightly` by default, or `sta
 
 ## Configuration and local builds
 
-Unsigned macOS and Windows packages use the same localized **DSH Local Build** label and version/commit badge as local Web builds. Signed packages keep official branding, including test deployments and macOS builds that skip notarization. Native application and installer names are unchanged.
+Unsigned macOS and Windows packages use the same localized **DSH Local Build** label and version/commit badge as local Web builds. Signed packages keep official branding, including test deployments and macOS builds that skip notarization. Linux ships only unsigned local artifacts, so its package builds the client bundle with the official profile and shows the official sidebar brand. Native application and installer names are unchanged.
 
 Set `DSH_PACKAGING_CONFIG_DIR` to the absolute machine configuration directory and `DSH_PACKAGING_PRESET` to `test` or `production` for local Windows commands. The loader reads `presets/<preset>.env`; signed commands additionally read `secrets/windows-signing.env`. Relative certificate and SignTool paths resolve beside the file declaring them. Public presets reject credentials, and the signing file cannot override public settings. Missing configuration fails without falling back to `.env.windows`; commands without a preset retain the existing dotenv behavior. Unsigned and preparation-only presets never read the signing file. Cache maintenance also reads only public preset settings. Test signed packages also require the existing download origin and release ID, but no upload credentials. Local preset commands with `--build-version auto` number from local artifacts only; Actions uses its run number and attempt.
 
@@ -97,7 +98,7 @@ pnpm run package:desktop:mac:x64
 pnpm run package:desktop:win:x64
 ```
 
-The macOS arm64 command requires Apple Silicon. The macOS x64 command runs on Intel macOS or Apple Silicon with Rosetta. The Windows x64 command requires Windows x64. Linux is not a supported Desktop release target.
+The macOS arm64 command requires Apple Silicon. The macOS x64 command runs on Intel macOS or Apple Silicon with Rosetta. The Windows x64 command requires Windows x64. Linux x64 is not a Desktop release target: it has no signed installer, update feed, or upload command, and its local DEB is built only through [Local Linux DEB without release signing](#local-linux-deb-without-release-signing).
 
 Both release and local unsigned macOS DMGs use LZMA compression (`dmg.format: 'ULMO'`) in [the electron-builder configuration](../scripts/electron-builder-config.mjs). A [build-time patch](../../../patches/app-builder-lib@26.17.0.patch) adds this format to the pinned builder's validation and TypeScript declarations.
 
@@ -178,6 +179,22 @@ Add `--check` to validate local configuration and tools without building, or `--
 
 These commands ignore `.env.macos` and inherited release settings, use `com.deepseek.harness` as the app ID, and omit automatic-update and mandatory-update configuration. Build tools, standard network proxies, and `DSH_DESKTOP_NPM_REGISTRY` remain available from the shell. They skip Developer ID signing, Apple notarization, temporary signing keychains, and notarization proxy changes. Electron receives a local ad-hoc signature without certificates so the modified executable can run; the DMG is unsigned. Both preparation and the assembled application still run runtime integrity and smoke checks. Local builds omit update feeds, ZIPs, and release completion records, and the upload commands cannot publish them. macOS may require approval in System Settings → Privacy & Security to open an unnotarized application. These builds stage no Computer Use helper, so Computer Use reports the missing helper when it prepares.
 
+<a id="local-linux-deb-without-release-signing"></a>
+
+## Local Linux DEB without release signing
+
+After `pnpm install` on Linux x64, build an installable Debian package without signing, notarization, or update configuration:
+
+```sh
+pnpm run package:desktop:linux:x64:unsigned
+```
+
+The build host needs Node 24, the root `packageManager` version of pnpm, Git, tar, `dpkg-deb`, and `fakeroot`; packaging probes the last two before building. Add `--check` to validate configuration and tooling without building, or use `pnpm run package:desktop:linux:x64:dir` to stop at the unpacked application. Linux always builds unsigned: the target has no release channel, so the command rejects every other signing mode instead of inventing one.
+
+The DEB is `apps/desktop/.desktop-build/targets/linux-x64/unsigned-artifacts/deepseek-harness-<version>-linux-amd64-unsigned.deb`. After all checks pass, the command prints `DEB:` followed by its absolute path. Install it with `sudo apt install ./<file>.deb` so apt resolves the declared dependencies; the package installs below `/opt/DeepSeek Harness`, registers `x-scheme-handler/dsh`, and recommends `libayatana-appindicator3-1` for the tray icon. Electron bundles Chromium, so the remaining dependencies are the usual GTK 3, NSS, X11/XTest, sound, and notification libraries. Launch `deepseek-harness` from the desktop entry or run `/opt/DeepSeek Harness/deepseek-harness`.
+
+These builds ignore `.env.windows` and `.env.macos`, use `com.deepseek.harness` as the app ID, and omit automatic-update and mandatory-update configuration, release completion records, Electron's automatic-update integration, and upload commands. The payload still runs runtime integrity and packaged smoke checks: booting the Host, installing an offline plugin, loading the bundled Office skills, and converting DOCX, XLSX, and PPTX samples. Office documents use the WebAssembly LibreOffice engine because no native Linux engine package ships. Electron's archive reader cannot open an absolute path containing non-ASCII characters on Linux, so packaging copies a checkout below such a path to an ASCII temporary directory before the packaged smoke; the installed application runs from `/opt`.
+
 <a id="macos-release-signing"></a>
 
 ## macOS release signing and diagnostics
@@ -216,6 +233,7 @@ Create a runnable application directory instead of an installer by using the mat
 ```sh
 pnpm run package:desktop:dir
 pnpm run package:desktop:mac:arm64:dir
+pnpm run package:desktop:linux:x64:dir
 ```
 
 To inspect or troubleshoot the prepared host-target resources without invoking electron-builder, stop the same pipeline after preparation:

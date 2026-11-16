@@ -202,6 +202,11 @@
   transform: translateX(4px);
 }
 
+/* The Linux overlay keeps the same strip, so its toggle takes the same nudge. */
+:global(html[data-inline-titlebar]:not([data-fullscreen])) .root:not(.collapsed) > .topStrip > .toggle {
+  transform: translateX(4px);
+}
+
 /* Window fullscreen hides the traffic lights (html[data-fullscreen], desktop
    preload): the toggle takes their spot at the strip's left edge. */
 :global([data-fullscreen]) .topStrip {
@@ -270,7 +275,7 @@
 
 /* On macOS the brand is a window-drag surface, not a New Session button;
    a pointer cursor would promise a click that drags the window instead. */
-:global([data-platform='darwin']) .brand {
+:global(:is([data-platform='darwin'], [data-inline-titlebar])) .brand {
   cursor: default;
 }
 

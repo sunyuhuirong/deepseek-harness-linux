@@ -14,12 +14,16 @@ export interface DesktopElectronBuilderConfig {
     { readonly from: string, readonly to: 'dsh', readonly filter: readonly ['**/*'] },
     { readonly from: string, readonly to: 'dsh/node_modules', readonly filter: readonly ['**/*'] },
   ]
-  readonly extraMetadata: { readonly dshDesktopAppId: string }
+  readonly extraMetadata: {
+    readonly dshDesktopAppId: string
+    readonly dshMandatoryUpdatePolicy?: unknown
+    readonly homepage?: string
+  }
   readonly asarUnpack: readonly string[]
   readonly extraResources: readonly [
     { readonly from: string, readonly to: 'runtime' },
     { readonly from: string, readonly to: 'icon.png' },
-    ...{ readonly from: string, readonly to: 'tray.ico' }[],
+    ...{ readonly from: string, readonly to: 'tray.ico' | 'tray.png' }[],
   ]
   readonly mac: {
     readonly extendInfo: {
@@ -45,6 +49,21 @@ export interface DesktopElectronBuilderConfig {
       readonly sign: ((configuration: { path: string, hash: string, isNest: boolean }) => Promise<void>) | undefined
       readonly signingHashAlgorithms: readonly string[]
     }
+  }
+  readonly linux: {
+    readonly executableName: 'deepseek-harness'
+    readonly syncDesktopName: true
+    readonly target: readonly ['deb']
+    readonly desktop: {
+      readonly entry: {
+        readonly MimeType: 'x-scheme-handler/dsh;'
+        readonly StartupWMClass: 'com.deepseek.harness'
+      }
+    }
+  }
+  readonly deb: {
+    readonly maintainer: string
+    readonly recommends: readonly ['libayatana-appindicator3-1']
   }
   readonly nsis: {
     readonly uninstallDisplayName: '${productName}'

@@ -60,7 +60,9 @@ export interface WindowDragRecallOptions {
  */
 export function installWindowDragRecall(options: WindowDragRecallOptions): () => void {
   const doc = options.document
-  if (doc.documentElement.dataset.platform !== 'darwin') return () => {}
+  const root = doc.documentElement
+  // macOS hidden-inset and the Linux window-controls overlay both drag from rows.
+  if (root.dataset.platform !== 'darwin' && !root.hasAttribute('data-inline-titlebar')) return () => {}
   const scheduleFrame = options.scheduleFrame ?? defaultScheduleFrame
   const watchBox = options.watchBox ?? defaultWatchBox
   /** The last frame's measurement per row, the baseline a change is read against. */

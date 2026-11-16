@@ -72,6 +72,9 @@ describe('desktop welcome window', () => {
       expect(options.backgroundColor).toBe('#FFFFFF')
       expect(options.vibrancy).toBeUndefined()
       expect(options.backgroundMaterial).toBeUndefined()
+      // Linux uses Electron's window-controls overlay instead of a native title bar.
+      expect(options.titleBarStyle).toBe('hidden')
+      expect(options.titleBarOverlay).toMatchObject({ height: 42 })
     }
   })
 

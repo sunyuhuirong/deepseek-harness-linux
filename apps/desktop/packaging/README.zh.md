@@ -19,6 +19,7 @@ description: "在本地或 Windows／macOS Actions 中生成 Desktop 安装包�
 - [macOS 自托管打包](#macos-actions)
 - [未签名 Windows 测试安装包](#unsigned-windows-test-installer)
 - [无发布签名的本地 macOS DMG](#local-macos-dmg-without-release-signing)
+- [无发布签名的本地 Linux DEB](#local-linux-deb-without-release-signing)
 - [macOS 发布签名与诊断](#macos-release-signing)
 - [目录构建与准备](#directory-and-preparation)
 - [用回环 registry 安装本地 Official 包](#local-official-bundles-from-a-loopback-registry)
@@ -69,7 +70,7 @@ production 发布使用产品版本本身，不传 `--build-version`。其上传
 
 ## 配置与本地构建
 
-macOS 和 Windows 未签名安装包使用与本地 Web 构建相同的本地化 **DSH 本地构建** 标签及版本/commit 徽标。签名安装包保留官方品牌，包括 test 部署和跳过公证的 macOS 构建。原生应用及安装器名称不变。
+macOS 和 Windows 未签名安装包使用与本地 Web 构建相同的本地化 **DSH 本地构建** 标签及版本/commit 徽标。签名安装包保留官方品牌，包括 test 部署和跳过公证的 macOS 构建。Linux 只交付未签名本地产物，因此其安装包以 official profile 构建 client bundle 并显示官方侧栏品牌。原生应用及安装器名称不变。
 
 本地 Windows 命令通过 `DSH_PACKAGING_CONFIG_DIR` 指定机器配置绝对目录，通过 `DSH_PACKAGING_PRESET` 选择 `test` 或 `production`。加载器读取 `presets/<preset>.env`；签名命令另读 `secrets/windows-signing.env`。相对证书和 SignTool 路径以声明它们的文件所在目录为基准。公开 preset 拒绝凭据，签名文件不能覆盖公开配置。配置缺失立即失败，不回退到 `.env.windows`；不选择 preset 的命令保留原 dotenv 行为。未签名和仅准备 preset 不读取签名文件。缓存维护也只读取公开 preset 配置。签名测试包还需现有下载 origin 和 release ID，但无需上传凭据。本地 preset 命令使用 `--build-version auto` 时仅按本地产物编号；Actions 使用运行编号和重试次数。
 
@@ -97,7 +98,7 @@ pnpm run package:desktop:mac:x64
 pnpm run package:desktop:win:x64
 ```
 
-macOS arm64 命令要求 Apple Silicon。macOS x64 命令可以在 Intel macOS 或带 Rosetta 的 Apple Silicon 上运行。Windows x64 命令要求 Windows x64。Linux 不是受支持的 Desktop 发布目标。
+macOS arm64 命令要求 Apple Silicon。macOS x64 命令可以在 Intel macOS 或带 Rosetta 的 Apple Silicon 上运行。Windows x64 命令要求 Windows x64。Linux x64 不是 Desktop 发布目标：它没有签名安装包、更新源或上传命令，只能通过[无发布签名的本地 Linux DEB](#local-linux-deb-without-release-signing) 构建本地 DEB。
 
 macOS 正式发布和本地未签名 DMG 都通过 [electron-builder 配置](../scripts/electron-builder-config.mjs)中的 `dmg.format: 'ULMO'` 使用 LZMA 压缩。[构建时补丁](../../../patches/app-builder-lib@26.17.0.patch)为固定版本 builder 的校验规则和 TypeScript 声明添加此格式。
 
@@ -178,6 +179,22 @@ pnpm run package:desktop:mac:x64:unsigned
 
 这些命令忽略 `.env.macos` 和继承的发布配置，使用 `com.deepseek.harness` 作为应用 ID，并省略自动更新和强制更新配置。构建工具、标准网络代理与 `DSH_DESKTOP_NPM_REGISTRY` 仍可从 shell 提供。它们跳过 Developer ID 签名、Apple 公证、临时签名钥匙串和公证代理修改。Electron 使用无需证书的本地 ad-hoc 签名，以便修改后的可执行文件能够运行；DMG 不签名。准备阶段和组装后的应用仍执行运行时完整性与冒烟检查。本地构建不生成更新源、ZIP 或发布完成记录，上传命令无法发布这些产物。macOS 可能要求在“系统设置 → 隐私与安全性”中批准打开未经公证的应用。这类构建不放入 Computer Use helper，Computer Use 准备时会报告 helper 缺失。
 
+<a id="local-linux-deb-without-release-signing"></a>
+
+## 无发布签名的本地 Linux DEB
+
+在 Linux x64 上执行 `pnpm install` 后，可用一条命令生成可安装的 Debian 包，无需签名、公证或更新配置：
+
+```sh
+pnpm run package:desktop:linux:x64:unsigned
+```
+
+构建机器需要 Node 24、根 `packageManager` 固定版本的 pnpm、Git、tar、`dpkg-deb` 和 `fakeroot`；构建前打包流程会探测后两项。添加 `--check` 仅校验配置和工具而不构建，或使用 `pnpm run package:desktop:linux:x64:dir` 只生成解包应用。Linux 始终构建未签名包：该目标没有发布通道，其他签名模式会被直接拒绝，而不是自行发明一种模式。
+
+DEB 路径为 `apps/desktop/.desktop-build/targets/linux-x64/unsigned-artifacts/deepseek-harness-<version>-linux-amd64-unsigned.deb`。所有检查通过后，命令打印 `DEB:` 及其绝对路径。使用 `sudo apt install ./<file>.deb` 安装，以便 apt 解析声明的依赖；安装目录为 `/opt/DeepSeek Harness`，注册 `x-scheme-handler/dsh`，并为托盘图标推荐 `libayatana-appindicator3-1`。Electron 自带 Chromium，其余依赖为常见的 GTK 3、NSS、X11/XTest、声音和通知库。可从桌面入口启动，或运行 `/opt/DeepSeek Harness/deepseek-harness`。
+
+这类构建忽略 `.env.windows` 和 `.env.macos`，使用 `com.deepseek.harness` 作为应用 ID，并省略自动更新与强制更新配置、发布完成记录、Electron 自动更新集成和上传命令。载荷仍执行运行时完整性与打包冒烟检查：启动 Host、安装离线插件、加载内置 Office 技能，并转换 DOCX、XLSX 和 PPTX 样例。Office 文档使用 WebAssembly LibreOffice 引擎，因为当前没有发布 Linux 原生引擎包。Linux 上 Electron 的归档读取器无法打开含非 ASCII 字符的绝对路径，因此 checkout 位于此类路径时，打包流程会先复制到 ASCII 临时目录再执行打包冒烟；安装后的应用从 `/opt` 运行，不受影响。
+
 <a id="macos-release-signing"></a>
 
 ## macOS 发布签名与诊断
@@ -216,6 +233,7 @@ Apple 工具使用 macOS 当前活动网络服务的 HTTP/HTTPS 代理。配置�
 ```sh
 pnpm run package:desktop:dir
 pnpm run package:desktop:mac:arm64:dir
+pnpm run package:desktop:linux:x64:dir
 ```
 
 需要检查或诊断为宿主目标准备的资源而不调用 electron-builder 时，可以让同一流水线在准备完成后停止：

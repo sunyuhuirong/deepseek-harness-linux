@@ -69,6 +69,15 @@ export function resolveDesktopAutoUpdateEnvironment(env) {
 }
 
 /**
+ * Report whether a packaging target publishes updates.
+ * @param {string} target - Candidate Desktop target name.
+ * @returns {boolean} True when the target has an update channel.
+ */
+export function isDesktopAutoUpdateTarget(target) {
+  return UPDATE_TARGETS.has(target)
+}
+
+/**
  * Resolve one supported platform and architecture to its update directory.
  * @param {NodeJS.Platform} platform - Target Node.js platform.
  * @param {string} arch - Target Node.js architecture.

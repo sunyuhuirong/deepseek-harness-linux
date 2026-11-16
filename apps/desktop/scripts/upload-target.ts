@@ -3,8 +3,9 @@
 import { resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import type { DesktopPackageTargetName } from './package-target.ts'
+import type { DesktopAutoUpdateTarget } from './desktop-auto-update-environment.mjs'
 import { createDesktopCos } from './desktop-cos.ts'
-import { requiredEnvironmentValue, resolveDesktopAutoUpdateEnvironment, resolveDesktopUploadConfig } from './desktop-auto-update-environment.mjs'
+import { isDesktopAutoUpdateTarget, requiredEnvironmentValue, resolveDesktopAutoUpdateEnvironment, resolveDesktopUploadConfig } from './desktop-auto-update-environment.mjs'
 import { desktopTargetPlatform } from './desktop-build-paths.mjs'
 import { loadDesktopPackageEnvironment } from './desktop-package-environment.mjs'
 import { createDesktopUploadPlan, type DesktopUploadPlan } from './desktop-upload-plan.ts'
@@ -12,13 +13,13 @@ import { desktopReleaseTag, tagDesktopRelease } from './desktop-release-tag.ts'
 import { uploadDesktopRelease } from './desktop-upload-run.ts'
 import { DesktopPurgeError, purgeDesktopInstaller, resolveDesktopPurgeConfig } from './desktop-edgeone.ts'
 
-const SUPPORTED_TARGETS = new Set<DesktopPackageTargetName>(['mac-arm64', 'mac-x64', 'win-x64'])
+const SUPPORTED_TARGETS: readonly DesktopAutoUpdateTarget[] = ['mac-arm64', 'mac-x64', 'win-x64']
 
-function targetName(value: string): DesktopPackageTargetName {
-  if (!SUPPORTED_TARGETS.has(value as DesktopPackageTargetName)) {
-    throw new DesktopUploadUsageError(`desktop upload: unsupported target ${JSON.stringify(value)}; expected ${[...SUPPORTED_TARGETS].join(', ')}`)
+function targetName(value: string): DesktopAutoUpdateTarget {
+  if (!isDesktopAutoUpdateTarget(value)) {
+    throw new DesktopUploadUsageError(`desktop upload: unsupported target ${JSON.stringify(value)}; expected ${SUPPORTED_TARGETS.join(', ')}`)
   }
-  return value as DesktopPackageTargetName
+  return value
 }
 
 /** Invalid command arguments or release configuration, reported before network writes. */

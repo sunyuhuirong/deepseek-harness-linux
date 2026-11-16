@@ -2,6 +2,7 @@ import { parsePluginOperationRecord } from '@deepseek-ai/dsh-plugin-manager/diag
 import type { DesktopHostProcess } from '../src/host-process.ts'
 import type { AccountView } from '@deepseek-ai/dsh-deepseek-account/types'
 import { WINDOWS_TITLEBAR_HEIGHT } from '../src/windows-layout.ts'
+import { LINUX_TITLEBAR_OVERLAY_HEIGHT } from '../src/linux-layout.ts'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import type { IpcMainInvokeEvent } from 'electron'
 import { join } from 'node:path'
@@ -821,8 +822,8 @@ describe('desktop main startup', () => {
     const menu = applicationMenuItems()
     const visible = menu.filter(item => item.visible !== false)
     expect(visible.map(item => item.role === 'quit' ? 'quit' : item.label ?? item.type)).toEqual([
-      messages.aboutMenu, 'separator', messages.checkUpdatesMenu,
-      ...platform === 'linux' ? [] : [messages.cliCommandMenu],
+      messages.aboutMenu, ...platform === 'linux' ? [] : ['separator', messages.checkUpdatesMenu],
+      messages.cliCommandMenu,
       'separator', ...packaged ? [] : [messages.reloadPageMenu, messages.restartAppHostMenu],
       messages.toggleDevToolsMenu, 'separator',
       ...platform === 'darwin' ? [messages.hideApplication, messages.hideOtherApplications, messages.showAllApplications, 'separator'] : [],
@@ -847,8 +848,10 @@ describe('desktop main startup', () => {
     harness.ipcOn.mock.calls.find(([channel]) => channel === DESKTOP_IPC.localeChanged)![1](
       { sender, senderFrame: sender.mainFrame }, nextLocale,
     )
+    // Linux rebuilds the tray context menu on locale change, so the refreshed application menu is
+    // the last template whose first item is itself a submenu.
     const refreshed = platform === 'win32' ? applicationMenuItems()
-      : harness.menu.mock.lastCall![0][0]!.submenu as MenuItemConstructorOptions[]
+      : harness.menu.mock.calls.findLast(([items]) => items[0]?.submenu !== undefined)![0][0]!.submenu as MenuItemConstructorOptions[]
     expect(refreshed.filter(item => item.role === 'toggleDevTools' && item.visible !== false)).toEqual([
       { role: 'toggleDevTools', label: nextLocale === 'en' ? en.toggleDevToolsMenu : zh.toggleDevToolsMenu },
     ])
@@ -1148,7 +1151,7 @@ describe('desktop main startup', () => {
     }
   })
 
-  it.each(['darwin', 'win32', 'linux'] as const)('limits native titlebar styling to macOS on %s', async (platform) => {
+  it.each(['darwin', 'win32', 'linux'] as const)('declares the native titlebar chrome on %s', async (platform) => {
     vi.spyOn(process, 'platform', 'get').mockReturnValue(platform)
     await import('../src/main.ts')
     await harness.preparing.promise
@@ -1164,8 +1167,13 @@ describe('desktop main startup', () => {
         { role: 'toggleDevTools', visible: false, accelerator: 'F12' },
       ])
     } else {
-      expect(window.options).not.toHaveProperty('backgroundColor')
-      expect(window.options).not.toHaveProperty('titleBarStyle')
+      // Linux floats the desktop's own window buttons over the page, so the
+      // overlay is transparent and its height matches the sidebar's top strip.
+      expect(window.options).toMatchObject({
+        backgroundColor: '#f9fafb',
+        titleBarStyle: 'hidden',
+        titleBarOverlay: { height: LINUX_TITLEBAR_OVERLAY_HEIGHT, color: '#00000000' },
+      })
       expect(window.options).not.toHaveProperty('vibrancy')
     }
     expect(harness.hosts).toHaveLength(0)
@@ -1270,14 +1278,14 @@ describe('desktop main startup', () => {
     expect(sent()).toHaveLength(relayed)
   })
 
-  it.each(['linux'] as const)('registers no fullscreen relay on %s', async (platform) => {
+  it.each(['linux'] as const)('relays the fullscreen state on %s', async (platform) => {
     vi.spyOn(process, 'platform', 'get').mockReturnValue(platform)
     await import('../src/main.ts')
     await harness.preparing.promise
     const window = harness.windows[0]!
     window.emit('enter-full-screen')
     window.webContents.emit('did-finish-load')
-    expect(window.webContents.send.mock.calls.filter(([channel]) => channel === DESKTOP_IPC.windowFullscreen)).toHaveLength(0)
+    expect(window.webContents.send.mock.calls.filter(([channel]) => channel === DESKTOP_IPC.windowFullscreen)).toHaveLength(2)
   })
 
   it('covers the macOS vibrancy reattach gap with an opaque base while minimized or hidden', async () => {
@@ -1440,7 +1448,7 @@ describe('desktop main startup', () => {
     const application = template[0]!.submenu as MenuItemConstructorOptions[]
     expect(application.filter(item => item.visible !== false).map(describeItem)).toEqual(platform === 'darwin'
       ? ['about', 'separator', en.checkUpdatesMenu, en.cliCommandMenu, 'separator', 'toggleDevTools', 'separator', 'hide', 'hideOthers', 'unhide', 'separator', 'quit']
-      : ['about', 'separator', en.checkUpdatesMenu, 'separator', 'toggleDevTools', 'separator', 'quit'])
+      : ['about', en.cliCommandMenu, 'separator', 'toggleDevTools', 'separator', 'quit'])
     expect(harness.menu.setApplicationMenu).toHaveBeenCalledOnce()
   })
 

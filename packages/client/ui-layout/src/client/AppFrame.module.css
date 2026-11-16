@@ -37,6 +37,7 @@
   corner-shape: round;
 }
 
+
 :global([data-windows-titlebar]) .frame::before {
   content: '';
   position: absolute;
@@ -98,7 +99,7 @@
    content clears the strip, and overlay primitives add their own safe inset.
    Declared on the root element rather than the frame so
    overlays portalled to document.body inherit it too. */
-:global(html[data-platform='darwin']) {
+:global(html:is([data-platform='darwin'], [data-inline-titlebar])) {
   --dsh-frame-top-clearance: 48px;
 }
 
@@ -110,11 +111,13 @@
 
 /* Portalled overlays share a viewport inset without adding space to entry pages. */
 :global(html[data-platform='darwin']),
+:global(html[data-inline-titlebar]),
 :global(html[data-windows-titlebar]) {
   --dsh-frame-overlay-top: calc(var(--dsh-frame-top-clearance) + 20px);
 }
 
 :global(html[data-platform='darwin'][data-fullscreen]),
+:global(html[data-inline-titlebar][data-fullscreen]),
 :global(html[data-windows-titlebar][data-fullscreen]) {
   --dsh-frame-overlay-top: 20px;
   --dsh-frame-chrome-top: 0px;
@@ -146,7 +149,7 @@
   }
 }
 
-:global([data-platform='darwin']) .centerCol {
+:global(:is([data-platform='darwin'], [data-inline-titlebar])) .centerCol {
   background: var(--dsw-alias-bg-base);
   border-left: 0.5px solid var(--dsw-alias-border-l3);
 }
@@ -156,14 +159,29 @@
    eases in layout and the transform on the compositor, so frames where they
    diverge would otherwise show vibrancy glass between the centre's right edge
    and the incoming panel. The occupant's opaque panel covers this at rest. */
-:global([data-platform='darwin']) .rightbarCol {
+:global(:is([data-platform='darwin'], [data-inline-titlebar])) .rightbarCol {
   background: var(--dsw-alias-bg-base);
 }
 
 /* The darwin closed sidebar has no rail: the centre reaches the window edge,
    where a separator would draw a seam against nothing. */
-:global([data-platform='darwin']) [data-sidebar-collapsed] .centerCol {
+:global(:is([data-platform='darwin'], [data-inline-titlebar])) [data-sidebar-collapsed] .centerCol {
   border-left: none;
+}
+
+/* Linux inlines the same chrome as macOS but draws the desktop's native window
+   buttons, which are wider than the traffic lights: three 37px cells starting at
+   the window edge, so the leading seat clears 123px instead of 88px. */
+:global(html[data-inline-titlebar]) {
+  --dsh-inline-button-band: 123px;
+}
+
+:global([data-inline-titlebar]) .leadingSeat {
+  left: var(--dsh-inline-button-band);
+}
+
+:global([data-inline-titlebar]) .frame[data-sidebar-collapsed] {
+  --dsh-frame-leading-clearance: calc(var(--dsh-inline-button-band) + 72px);
 }
 
 /* Published while the shell.leading seat is mounted (same condition as the
@@ -185,7 +203,8 @@
   --dsh-frame-leading-clearance: 84px;
 }
 
-:global([data-platform='darwin'][data-fullscreen]) .leadingSeat {
+:global(html[data-platform='darwin'][data-fullscreen]) .leadingSeat,
+:global(html[data-inline-titlebar][data-fullscreen]) .leadingSeat {
   left: 12px;
 }
 
@@ -336,11 +355,21 @@
   left: 88px;
 }
 
-:global([data-platform='darwin'][data-fullscreen]) .frame[data-sidebar-drawer] {
+:global([data-inline-titlebar]) .frame[data-sidebar-drawer] {
+  --dsh-frame-leading-clearance: calc(var(--dsh-inline-button-band) + 72px);
+}
+
+:global([data-inline-titlebar]) .frame[data-sidebar-drawer] .leadingSeat {
+  left: var(--dsh-inline-button-band);
+}
+
+:global(html[data-platform='darwin'][data-fullscreen]) .frame[data-sidebar-drawer],
+:global(html[data-inline-titlebar][data-fullscreen]) .frame[data-sidebar-drawer] {
   --dsh-frame-leading-clearance: 84px;
 }
 
-:global([data-platform='darwin'][data-fullscreen]) .frame[data-sidebar-drawer] .leadingSeat {
+:global(html[data-platform='darwin'][data-fullscreen]) .frame[data-sidebar-drawer] .leadingSeat,
+:global(html[data-inline-titlebar][data-fullscreen]) .frame[data-sidebar-drawer] .leadingSeat {
   left: 12px;
 }
 

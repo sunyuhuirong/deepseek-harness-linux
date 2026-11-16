@@ -10,6 +10,7 @@ vi.mock('../src/preload-menu.ts', () => ({ installWindowsMenu: () => ({ update: 
 afterEach(() => {
   window.dispatchEvent(new Event('pagehide'))
   document.documentElement.removeAttribute('data-windows-titlebar')
+  document.documentElement.removeAttribute('data-inline-titlebar')
   document.documentElement.style.removeProperty('--dsh-windows-titlebar-height')
   document.documentElement.lang = 'en'
   document.body.removeAttribute('data-ds-dark-theme')
@@ -17,11 +18,31 @@ afterEach(() => {
   send.mockClear()
 })
 
-it.each(['darwin', 'linux'] as const)('does not install Windows controls on %s', (platform) => {
-  vi.spyOn(process, 'platform', 'get').mockReturnValue(platform)
+it('does not install desktop controls on darwin', () => {
+  vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin')
   syncWindowsAppearance()
   expect(document.documentElement.hasAttribute('data-windows-titlebar')).toBe(false)
+  expect(document.documentElement.hasAttribute('data-inline-titlebar')).toBe(false)
   expect(send).not.toHaveBeenCalled()
+})
+
+it('inlines the window chrome on linux', () => {
+  vi.spyOn(process, 'platform', 'get').mockReturnValue('linux')
+  vi.spyOn(globalThis, 'getComputedStyle').mockImplementation(() => ({
+    backgroundColor: 'hsl(0 0% 100%)',
+    color: 'black',
+  }) as CSSStyleDeclaration)
+  const context = {
+    fillStyle: '', clearRect: vi.fn(), fillRect: vi.fn(),
+    getImageData: () => ({ data: new Uint8ClampedArray([255, 255, 255, 255]) }),
+  }
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context as unknown as CanvasRenderingContext2D)
+  syncWindowsAppearance()
+  expect(document.documentElement.hasAttribute('data-inline-titlebar')).toBe(true)
+  expect(document.documentElement.hasAttribute('data-windows-titlebar')).toBe(false)
+  // The overlay floats over the page, so no caption height is published.
+  expect(document.documentElement.style.getPropertyValue('--dsh-windows-titlebar-height')).toBe('')
+  expect(send).toHaveBeenCalledTimes(1)
 })
 
 it('synchronizes live language and palette changes and stops observing a closed document', async () => {

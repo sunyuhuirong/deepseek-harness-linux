@@ -42,7 +42,7 @@ it('clamps a resting floating panel\'s position and size into the viewport and b
   expect(floatRule).toContain('height: min(var(--dsh-dockkit-float-height), 100dvh - var(--dsh-dockkit-float-top, 0px));')
 })
 
-describe('macOS app-region ownership', () => {
+describe('inline window-chrome app-region ownership', () => {
   it('subtracts panes, strip-end chrome, floats, and dividers without declaring drag', () => {
     // The strip row's drag is the markup mark's job: a sheet that declares it
     // here would drag the same box twice and hide the row from the ownership gate.
@@ -51,13 +51,14 @@ describe('macOS app-region ownership', () => {
     const [selector, value] = regionRules[0]!
     expect(value).toBe('no-drag')
     for (const part of ['.pane', '.stripChrome', '.float', '.divider']) {
-      expect(selector, part).toContain(`:global(:where(html[data-platform='darwin'])) ${part}`)
+      expect(selector, part).toContain(`:global(:where(html[data-platform='darwin'], html[data-inline-titlebar])) ${part}`)
     }
   })
 
-  it('scopes the subtraction to the darwin root', () => {
+  it('scopes the subtraction to the inline-chrome roots', () => {
     for (const [selector] of regionRules) {
       expect(selector).toContain("html[data-platform='darwin']")
+      expect(selector).toContain('html[data-inline-titlebar]')
     }
   })
 })

@@ -24,6 +24,7 @@ Desktop runs the Harness workspace in a native application. This reference cover
 - [Windows installer interface](#windows-installer-interface)
 - [Updates](#updates)
 - [Low-level development overrides](#low-level-development-overrides)
+- [Linux support](#linux-support)
 - [Known limitations](#known-limitations)
 - [Dev Note](#dev-note)
 
@@ -399,6 +400,14 @@ Embedded Platform views remain hidden until document loading completes so the re
 Private Platform deployment headers are injected by the embedded browser session only for its configured origin, including document and API requests. Cookie overrides merge by name. Cross-origin requests discard deployment headers; bootstrap exposes only origin, token, and resolved language.
 
 The account provider’s `embeddedPageDist` configuration adds a `dist` query parameter to embedded Usage and Top-up URLs. Its default is empty; private frontend branch selectors belong in the local profile patch. It does not change API URLs or credential delivery.
+
+<a id="linux-support"></a>
+
+## Linux support
+
+Local unsigned Linux x64 packages install from a DEB; [Desktop packaging](packaging/README.md#local-linux-deb-without-release-signing) owns the build command, host tools, dependencies, and artifact path. Installation registers the `dsh` URL scheme and creates the CLI command at `~/.local/bin/dsh` instead of `/usr/local/bin/dsh`, without changing shell startup files. The main and welcome windows draw the desktop's own window buttons over the page, so they show neither a native title bar nor a caption strip; the main window follows the macOS layout, with the sidebar keeping a top strip for those buttons and the conversation reaching the window's top edge, and the buttons stay on the side the desktop's window-button setting selects. Right-clicking that strip or the conversation header opens the desktop application menu. Closing the window hides it without the Windows first-close confirmation, and the tray reopens it; appindicator support is a Debian recommendation, so a session without it logs an unavailable tray and keeps launching the application as the way back to the window.
+
+Linux packages carry no update feed, so they start no automatic check and the application menu offers no Check for Updates command. The embedded Platform account view identifies itself as the web client because that service distinguishes only macOS and Windows desktops. Office previews and conversions use the bundled WebAssembly LibreOffice engine because no native Linux engine package is published.
 
 <a id="dev-note"></a>
 

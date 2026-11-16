@@ -66,7 +66,9 @@ export function createElectronBuilderConfig(
   if (skipNotarization && (unsigned || resolvedPlatform !== 'darwin')) throw new Error('Skipping notarization requires a signed macOS build')
   const packagesMacOS = targetPlatform === 'darwin' || (targetPlatform === undefined && hostPlatform === 'darwin')
   const packagesWindows = resolvedPlatform === 'win32'
-  const policy = packagesMacOS && unsigned ? undefined : resolveDesktopPolicyEnvironment(env)
+  const policy = resolvedPlatform === 'linux' || (packagesMacOS && unsigned)
+    ? undefined
+    : resolveDesktopPolicyEnvironment(env)
   if (resolvedPlatform === 'win32') installWindowsDirectoryInstaller()
   const macOSSigning = packagesMacOS && !unsigned ? resolveMacOSSigningEnvironment(env) : undefined
   if (packagesMacOS && !unsigned && !skipNotarization) resolveMacOSNotarizationEnvironment(env)
@@ -115,6 +117,8 @@ export function createElectronBuilderConfig(
       ...(policy === undefined ? {} : { dshMandatoryUpdatePolicy: policy }),
       ...buildVersion === productVersion ? {} : { version: buildVersion },
       ...packaged === undefined ? {} : { dshBuildCommit: packaged.commit, dshBuildDirty: packaged.dirty },
+      // Debian packaging requires a project homepage; only the Linux target reads it.
+      ...resolvedPlatform === 'linux' ? { homepage: 'https://github.com/deepseek-ai/deepseek-harness' } : {},
     },
     productName: 'DeepSeek Harness',
     // The default copyright uses author.name; this line names the product instead.
@@ -160,8 +164,9 @@ export function createElectronBuilderConfig(
     extraResources: [
       { from: buildPaths.runtime, to: 'runtime' },
       { from: fileURLToPath(new URL('../resources/icon-windows.png', import.meta.url)), to: 'icon.png' },
-      // Windows tray bitmaps; macOS keeps the Dock and ships no menu bar icon.
+      // Windows tray bitmaps; macOS keeps the Dock and ships no menu bar icon. Linux appindicator takes a PNG.
       ...(packagesWindows ? [{ from: fileURLToPath(new URL('../resources/tray-windows.ico', import.meta.url)), to: 'tray.ico' }] : []),
+      ...(resolvedPlatform === 'linux' ? [{ from: fileURLToPath(new URL('../resources/tray-linux.png', import.meta.url)), to: 'tray.png' }] : []),
     ],
     mac: {
       icon: fileURLToPath(new URL('../resources/icon-macos.png', import.meta.url)),
@@ -255,8 +260,30 @@ export function createElectronBuilderConfig(
       target: ['nsis'],
     },
     linux: {
+      icon: fileURLToPath(new URL('../resources/icon.png', import.meta.url)),
       category: 'Development',
-      target: ['AppImage'],
+      // The CLI launcher resolves this executable from the resources directory.
+      executableName: 'deepseek-harness',
+      // The .desktop filename follows `desktopName`, so Electron's app_id matches
+      // the entry GNOME associates the running window with.
+      syncDesktopName: true,
+      target: ['deb'],
+      desktop: {
+        entry: {
+          Name: 'DeepSeek Harness',
+          Comment: 'DeepSeek Harness desktop shell',
+          Categories: 'Development;',
+          Keywords: 'ai;agent;deepseek;harness;',
+          MimeType: 'x-scheme-handler/dsh;',
+          StartupWMClass: 'com.deepseek.harness',
+        },
+      },
+    },
+    deb: {
+      // Debian metadata requires a maintainer address; the unsigned local build has no release contact.
+      maintainer: 'DeepSeek Harness <deepseek-ai@users.noreply.github.com>',
+      // Tray integration is optional so a headless desktop session still installs.
+      recommends: ['libayatana-appindicator3-1'],
     },
     nsis: {
       uninstallDisplayName: '${productName}',

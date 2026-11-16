@@ -23,7 +23,7 @@ import { packageFiles, packageStylesheets, parseRules, type CssRule } from './st
 const SHELL_SHEET = 'client/web/src/base.css'
 
 /** The mark that stylesheet's rule selects, as authored. */
-const SHELL_DRAG_SELECTOR = "html[data-platform='darwin'] [data-window-drag]"
+const SHELL_DRAG_SELECTOR = "html:is([data-platform='darwin'], [data-inline-titlebar]) [data-window-drag]"
 
 /** The frame's Windows caption row, relative to packages/; the other platform's chrome. */
 const WINDOWS_CAPTION = 'client/ui-layout/src/client/AppFrame.module.css'
